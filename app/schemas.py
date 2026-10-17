@@ -1,32 +1,35 @@
-
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
-
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 Role = Literal["operator", "admin"]
-TaskStatus = Literal["open", "in_progress", "done"]
-TaskPriority = Literal["low", "medium", "high"]
+Status = Literal["open", "in_progress", "done"]
+Priority = Literal["low", "medium", "high"]
+COLOR = r"^#[0-9a-fA-F]{6}$"
 
 
-class ReadModel(BaseModel):
+class Strict(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+
+class Read(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class UserCreate(BaseModel):
-    email: str = Field(min_length=1, max_length=255)
+class UserCreate(Strict):
+    email: EmailStr
     display_name: str = Field(min_length=1, max_length=255)
     role: Role = "operator"
 
 
-class UserUpdate(BaseModel):
-    email: str | None = Field(default=None, max_length=255)
-    display_name: str | None = Field(default=None, max_length=255)
-    role: Role | None = None
+class UserUpdate(Strict):
+    email: EmailStr = None
+    display_name: str = Field(default=None, min_length=1, max_length=255)
+    role: Role = None
 
 
-class UserRead(ReadModel):
+class UserRead(Read):
     id: int
     email: str
     display_name: str
@@ -34,78 +37,60 @@ class UserRead(ReadModel):
     created_at: datetime
 
 
-class ProjectCreate(BaseModel):
+class ProjectCreate(Strict):
     name: str = Field(min_length=1, max_length=200)
     description: str | None = None
 
 
-class ProjectUpdate(BaseModel):
-    name: str | None = Field(default=None, min_length=1, max_length=200)
+class ProjectUpdate(Strict):
+    name: str = Field(default=None, min_length=1, max_length=200)
     description: str | None = None
 
 
-class ProjectRead(ReadModel):
+class ProjectRead(Read):
     id: int
     name: str
     description: str | None
     created_at: datetime
 
 
-class LabelCreate(BaseModel):
+class LabelCreate(Strict):
     name: str = Field(min_length=1, max_length=64)
-    color: str = "#6b7280"
-
-    @field_validator("color")
-    @classmethod
-    def validate_color(cls, value: str) -> str:
-        import re
-
-        if not re.fullmatch(r"#[0-9a-fA-F]{6}", value):
-            raise ValueError("Color must use #RRGGBB format")
-        return value
+    color: str = Field(default="#6b7280", pattern=COLOR)
 
 
-class LabelUpdate(BaseModel):
-    name: str | None = Field(default=None, min_length=1, max_length=64)
-    color: str | None = None
-
-    @field_validator("color")
-    @classmethod
-    def validate_color(cls, value: str | None) -> str | None:
-        import re
-
-        if value is not None and not re.fullmatch(r"#[0-9a-fA-F]{6}", value):
-            raise ValueError("Color must use #RRGGBB format")
-        return value
+class LabelUpdate(Strict):
+    name: str = Field(default=None, min_length=1, max_length=64)
+    color: str = Field(default=None, pattern=COLOR)
 
 
-class LabelRead(ReadModel):
+class LabelRead(Read):
     id: int
     name: str
     color: str
 
 
-class TaskCreate(BaseModel):
+class TaskCreate(Strict):
     project_id: int
     assignee_id: int | None = None
     label_id: int | None = None
     title: str = Field(min_length=1, max_length=200)
     description: str | None = None
-    status: TaskStatus = "open"
-    priority: TaskPriority = "medium"
+    status: Status = "open"
+    priority: Priority = "medium"
 
 
-class TaskUpdate(BaseModel):
-    project_id: int | None = None
+class TaskUpdate(Strict):
+    project_id: int = None
     assignee_id: int | None = None
     label_id: int | None = None
-    title: str | None = Field(default=None, min_length=1, max_length=200)
+    title: str = Field(default=None, min_length=1, max_length=200)
     description: str | None = None
-    status: TaskStatus | None = None
-    priority: TaskPriority | None = None
+    status: Status = None
+    priority: Priority = None
 
 
-class TaskRead(ReadModel):
+class TaskRead(Read):
     id: int
     project_id: int
     assignee_id: int | None
@@ -118,33 +103,19 @@ class TaskRead(ReadModel):
     updated_at: datetime
 
 
-class CommentCreate(BaseModel):
+class CommentCreate(Strict):
     task_id: int
     author_id: int
     body: str = Field(min_length=1)
 
-    @field_validator("body")
-    @classmethod
-    def validate_body(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("Comment body cannot be empty")
-        return value
+
+class CommentUpdate(Strict):
+    task_id: int = None
+    author_id: int = None
+    body: str = Field(default=None, min_length=1)
 
 
-class CommentUpdate(BaseModel):
-    task_id: int | None = None
-    author_id: int | None = None
-    body: str | None = Field(default=None, min_length=1)
-
-    @field_validator("body")
-    @classmethod
-    def validate_body(cls, value: str | None) -> str | None:
-        if value is not None and not value.strip():
-            raise ValueError("Comment body cannot be empty")
-        return value
-
-
-class CommentRead(ReadModel):
+class CommentRead(Read):
     id: int
     task_id: int
     author_id: int
